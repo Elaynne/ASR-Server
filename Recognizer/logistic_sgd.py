@@ -1,37 +1,4 @@
-"""
-This tutorial introduces logistic regression using Theano and stochastic
-gradient descent.
 
-Logistic regression is a probabilistic, linear classifier. It is parametrized
-by a weight matrix :math:`W` and a bias vector :math:`b`. Classification is
-done by projecting data points onto a set of hyperplanes, the distance to
-which is used to determine a class membership probability.
-
-Mathematically, this can be written as:
-
-.. math::
-  P(Y=i|x, W,b) &= softmax_i(W x + b) \\
-                &= \frac {e^{W_i x + b_i}} {\sum_j e^{W_j x + b_j}}
-
-
-The output of the model or prediction is then done by taking the argmax of
-the vector whose i'th element is P(Y=i|x).
-
-.. math::
-
-  y_{pred} = argmax_i P(Y=i|x,W,b)
-
-
-This tutorial presents a stochastic gradient descent optimization method
-suitable for large datasets.
-
-
-References:
-
-    - textbooks: "Pattern Recognition and Machine Learning" -
-                 Christopher M. Bishop, section 4.3.2
-
-"""
 __docformat__ = 'restructedtext en'
 
 import pickle
@@ -106,8 +73,17 @@ class LogisticRegression(object):
         self.y_pred = T.argmax(self.p_y_given_x, axis=1)
         # end-snippet-1
 
+        self.salvation = []
         # parameters of the model
         self.params = [self.W, self.b]
+    def class_probability_func(self, image):
+        """
+        Given an input (a vector of pixels), create a function that maps the
+        input to a logistic probability function given the weight matrix and bias vector.
+
+        HINT: look for the softmax function
+        """
+        return T.nnet.softmax(T.dot(image, self.W) + self.b)
 
     def negative_log_likelihood(self, y):
         """Return the mean of the negative log-likelihood of the prediction
@@ -165,89 +141,104 @@ class LogisticRegression(object):
         else:
             raise NotImplementedError()
 
+    def output(self):
+        """Return a float representing the number of errors in the minibatch
+        over the total number of examples of the minibatch ; zero one
+        loss over the size of the minibatch
 
-def load_data(dataset):
-    ''' Loads the dataset
+        :type y: theano.tensor.TensorType
+        :param y: corresponds to a vector that gives for each example the
+                  correct label
+        """
 
-    :type dataset: string
-    :param dataset: the path to the dataset (here MNIST)
-    '''
+        # check if y has same dimension of y_pred
+        if y.ndim != self.y_pred.ndim:
+            raise TypeError(
+                'y should have the same shape as self.y_pred',
+                ('y', y.type, 'y_pred', self.y_pred.type)
+            )
+        # check if y is of the correct datatype
+        return self.y_pred
 
-    #############
-    # LOAD DATA #
-    #############
 
-    # Download the MNIST dataset if it is not present
-    data_dir, data_file = os.path.split(dataset)
-    if data_dir == "" and not os.path.isfile(dataset):
-        # Check if dataset is in the data directory.
-        new_path = os.path.join(
-            os.path.split(__file__)[0],
-            "..",
-            "data",
-            dataset
-        )
-        if os.path.isfile(new_path) or data_file == 'mnist.pkl.gz':
-            dataset = new_path
+import numpy as np
+#import auxBKPFuncionando212 as aux
+import aux
 
-    if (not os.path.isfile(dataset)) and data_file == 'mnist.pkl.gz':
-        import urllib.request, urllib.parse, urllib.error
-        origin = (
-            'http://www.iro.umontreal.ca/~lisa/deep/data/mnist/mnist.pkl.gz'
-        )
-        print('Downloading data from %s' % origin)
-        urllib.request.urlretrieve(origin, dataset)
 
-    print('... loading data')
+def load_data(dataset, rodada, largura = 50):
 
-    # Load the dataset
-    f = gzip.open(dataset, 'rb')
-    train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
-    dados = numpy.loadtxt('numeros.txt')
-    with open('base_spec.pkl', 'rb') as f:
-        base = dill.load(f)
+    print('Largura: ' + str(largura))
+    base, base_teste = aux.loadGenerica(rodada = rodada,largura=largura)
 
-    #dados_x = dados[:,0:256]
-    #dados_y = dados[:,256]
-    #test_set = dados[0:361:]
-    #valid_set = dados[361:401,:]
-    #train_set = dados[401:481,:]
-    labels = numpy.append([],base[1][:]) - 1
-    lista = numpy.arange(0,375)
+
+    print('base:  train', base[0].shape)
+    print('base teste : ', base_teste[0].shape)
+
+
+    labels = numpy.append([],base[1][:])
+    lista = numpy.arange(0,base[0].shape[0]) #1428
     numpy.random.shuffle(lista)
-    print(labels.shape,' q ',dados.shape)
-    testy = labels[375:]
-    testx = base[0][375:,:]
-    labels = labels[0:375]
-    dados = base[0][0:375,:]
 
+
+    labels = labels
+    dados = base[0]
+    testemax = dados[0:150,:]
     labels = labels[lista]
     dados = dados[lista,:]
-    print(labels.shape,' q ',dados.shape)
-    i = 375
-    train_setx = dados[0:i,:]
-    train_sety = labels[0:i]
 
-    #valid_setx = dados[0:i,:]
-    #valid_sety = labels[0:i]
+    i = 6000
+    if(len(str(len(dados))) == 3):
+        intervalo_train = int(str(len(dados))[0] + '00')
+    else:
+        intervalo_train = int(str(len(dados))[0] + '000')
+    print("intervalo_train  : ",intervalo_train)
+    train_setx = dados[0:intervalo_train,:]
+    train_sety = labels[0:intervalo_train] #1400
 
-    valid_setx = dados[0:i,:]
-    valid_sety = labels[0:i]
+    valid_setx = base[0][0:100,:]
+    valid_sety = numpy.append([],base[1][:])[0:100] #4750
 
-    test_setx = testx
-    test_sety = testy
-    #test_setx = dados[i:,:]
-    #test_sety = labels[i:]
+    x_Temp = dados[100:200]
 
+    #valid_setx = train_setx[0:5000,0:]
+    #valid_sety = train_sety[0:5000]
+    test_setx = valid_setx
+    test_sety = valid_sety
 
     #dados[dados < 0] = 0
-    f.close()
+
     #train_set, valid_set, test_set format: tuple(input, target)
     #input is an numpy.ndarray of 2 dimensions (a matrix)
     #witch row's correspond to an example. target is a
     #numpy.ndarray of 1 dimensions (vector)) that have the same length as
     #the number of rows in the input. It should give the target
     #target to the example with the same index in the input.
+
+    def shared_dataset2(data_x, borrow=True):
+        """ Function that loads the dataset into shared variables
+
+        The reason we store our dataset in shared variables is to allow
+        Theano to copy it into the GPU memory (when code is run on GPU).
+        Since copying data into the GPU is slow, copying a minibatch everytime
+        is needed (the default behaviour if the data is not in a shared
+        variable) would lead to a large decrease in performance.
+        """
+        # data_x, data_y = data_xy
+        # data_x = data_xy[:,0:256]
+        # data_y = data_xy[:,256]
+        shared_x = theano.shared(numpy.asarray(data_x,
+                                               dtype=theano.config.floatX),
+                                 borrow=borrow)
+
+        # When storing data on the GPU it has to be stored as floats
+        # therefore we will store the labels as ``floatX`` as well
+        # (``shared_y`` does exactly that). But during our computations
+        # we need them as ints (we use labels as index, and if they are
+        # floats it doesn't make sense) therefore instead of returning
+        # ``shared_y`` we will have to cast it to int. This little hack
+        # lets ous get around this issue
+        return shared_x
 
     def shared_dataset(data_x,data_y, borrow=True):
         """ Function that loads the dataset into shared variables
@@ -279,10 +270,13 @@ def load_data(dataset):
     test_set_x, test_set_y = shared_dataset(test_setx,test_sety)
     valid_set_x, valid_set_y = shared_dataset(valid_setx,valid_sety)
     train_set_x, train_set_y = shared_dataset(train_setx,train_sety)
+    xTemp = shared_dataset2(x_Temp)
+
+    testemax, ya = shared_dataset(testemax,[])
 
     rval = [(train_set_x, train_set_y), (valid_set_x, valid_set_y),
-            (test_set_x, test_set_y)]
-    return rval
+            (test_set_x, test_set_y), (testemax,ya)]
+    return rval,xTemp
 
 
 def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000,
